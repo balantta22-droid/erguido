@@ -1,0 +1,25 @@
+{
+ "name": "Erguido",
+ "short_name": "Erguido",
+ "description": "Monitor de postura de cabeza con la cámara del celular o del computador",
+ "id": "./",
+ "start_url": "./index.html",
+ "scope": "./",
+ "display": "standalone",
+ "orientation": "any",
+ "background_color": "#0F273D",
+ "theme_color": "#0F273D",
+ "lang": "es",
+ "icons": [
+  {
+   "src": "icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png"
+  },
+  {
+   "src": "icon.png",
+   "sizes": "512x512",
+   "type": "image/png"
+  }
+ ]
+}
