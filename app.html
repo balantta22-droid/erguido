@@ -208,6 +208,8 @@ canvas.chart{width:100%;height:190px;display:block;background:#fff;border:1px so
   canvas.chart{height:210px}
 }
 </style>
+<link rel="stylesheet" href="pro.css">
+<script src="pro.js" defer></script>
 </head>
 <body>
 
@@ -524,7 +526,7 @@ async function loadModel() {
   if (!window.Pose) await loadScript('pose.js');
   const pose = new window.Pose({ locateFile: f => new URL(f, location.href).href });
   pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, enableSegmentation: false, minDetectionConfidence: .5, minTrackingConfidence: .5 });
-  pose.onResults(r => { poseLast = r.poseLandmarks || null; poseNew = true; });
+  pose.onResults(r => { poseLast = r.poseLandmarks || null; poseNew = true; if (window.ErguidoPro) { try { window.ErguidoPro.onPose(poseLast); } catch (e) { /* capa opcional */ } } });
   await pose.initialize();
   landmarker = pose;
   return landmarker;
@@ -559,9 +561,10 @@ function stopSource() {
 let lastVideoTime = -1;
 function readCamera(ts) {
   if (!landmarker || video.readyState < 2) return undefined;
-  if (!poseBusy && video.currentTime !== lastVideoTime) {
-    lastVideoTime = video.currentTime; poseBusy = true;
-    landmarker.send({ image: video }).catch(() => {}).finally(() => { poseBusy = false; });
+  const P = window.ErguidoPro;
+  if (!poseBusy && !(P && P.hold()) && video.currentTime !== lastVideoTime) {
+    lastVideoTime = video.currentTime; poseBusy = true; S.poseBusy = true; const t0 = performance.now();
+    landmarker.send({ image: video }).catch(() => {}).finally(() => { poseBusy = false; S.poseBusy = false; if (P) { try { P.poseDone(performance.now() - t0); } catch (e) { /* capa opcional */ } } });
   }
   if (S.W !== video.videoWidth || S.H !== video.videoHeight) { S.W = video.videoWidth; S.H = video.videoHeight; fitStage(); }
   if (poseNew) { poseNew = false; return poseLast; }
@@ -578,6 +581,10 @@ function demoLandmarks(f, t) {
   set(11, .5 + shHalf, my); set(12, .5 - shHalf, my);
   set(7, .5 + hw, ey); set(8, .5 - hw, ey);
   set(0, .5, ey + .035 + .03 * f);
+  const ny = ey + .035 + .03 * f, e0 = hw * .44;
+  set(2, .5 + e0, ny - .029); set(5, .5 - e0, ny - .029); set(1, .5 + e0 * .5, ny - .029); set(4, .5 - e0 * .5, ny - .029); set(3, .5 + e0 * 1.55, ny - .027); set(6, .5 - e0 * 1.55, ny - .027);
+  set(9, .5 + .0125, ny + .046); set(10, .5 - .0125, ny + .046);
+  set(13, .5 + shHalf + .035, my + .21, .75); set(14, .5 - shHalf - .035, my + .21, .75);
   return lm;
 }
 function startDemo() {
@@ -595,7 +602,7 @@ function readDemo(ts) {
   }
   demo.f += (demo.target - demo.f) * .12; $('#demoVal').textContent = Math.round(demo.f * 100) + ' %';
   const sl = $('#demoSlider'); if (document.activeElement !== sl) sl.value = Math.round(demo.target * 100);
-  const lm = demoLandmarks(demo.f, t); drawDemo(lm); return lm;
+  const lm = demoLandmarks(demo.f, t); drawDemo(lm); if (window.ErguidoPro) { try { window.ErguidoPro.onPose(lm.map(p => ({ x: p.x, y: p.y, z: 0, visibility: p.visibility }))); } catch (e) { /* capa opcional */ } } return lm;
 }
 function drawDemo(lm) {
   const c = demoCanvas.getContext('2d'), W = 640, H = 480; const P = i => ({ x: lm[i].x * W, y: lm[i].y * H });
@@ -691,6 +698,7 @@ function loop(ts) {
   S.fpsT.push(ts); while (S.fpsT.length && ts - S.fpsT[0] > 1000) S.fpsT.shift();
   $('#fpsChip').textContent = S.fpsT.length;
   const lm = S.mode === 'camera' ? readCamera(ts) : readDemo(ts);
+  if (window.ErguidoPro && S.mode === 'camera') { try { window.ErguidoPro.tick(ts, video); } catch (e) { /* capa opcional */ } }
   if (lm !== undefined) {
     if (lm && lm[11] && lm[12] && lm[7] && lm[8]) {
       smoothLandmarks(lm); computeFeatures();
@@ -831,8 +839,11 @@ function label(ctx, text, x, y, color) {
 function draw() {
   const c = overlay; if (c.width !== S.W || c.height !== S.H) { c.width = S.W; c.height = S.H; }
   const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height);
-  if (!settings.skel || !S.pts || !S.f) return;
-  const { L, R, sL, sR, M, E, nose } = S.pts, st = stateOf(), col = stateColor[st] || stateColor.idle;
+  if (!settings.skel) return;
+  const st = stateOf(), col = stateColor[st] || stateColor.idle;
+  if (window.ErguidoPro) { try { if (window.ErguidoPro.draw(ctx, S, { col, st, mirror: settings.mirror })) return; } catch (e) { c.width = c.width; console.warn('Erguido PRO:', e); } }
+  if (!S.pts || !S.f) return;
+  const { L, R, sL, sR, M, E, nose } = S.pts;
   const seg = (a, b, w = 4, cc = col) => { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineWidth = w + 3; ctx.strokeStyle = 'rgba(8,16,26,.6)'; ctx.lineCap = 'round'; ctx.stroke(); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineWidth = w; ctx.strokeStyle = cc; ctx.stroke(); };
   seg(sL, sR, 4, 'rgba(255,255,255,.85)'); seg(M, L, 4); seg(M, R, 4);
   const a1 = Math.atan2(L.y - M.y, L.x - M.x), a2 = Math.atan2(R.y - M.y, R.x - M.x); let df = a2 - a1; while (df <= -Math.PI) df += 2 * Math.PI; while (df > Math.PI) df -= 2 * Math.PI;
@@ -849,6 +860,7 @@ function setIdle(h, p) { const i = $('#idle'); i.style.display = ''; i.querySele
 function setCheck(k, v) { const el = $(`.check[data-k="${k}"] .ic`); if (!el) return; el.className = 'ic ' + (v || ''); el.textContent = v === 'ok' ? '✓' : v === 'warn' ? '!' : v === 'bad' ? '×' : '–'; }
 function updateUI(dt) {
   const f = S.f, rel = S.rel, m = S.mon;
+  if (window.ErguidoPro) { try { window.ErguidoPro.ui(S, stateOf()); } catch (e) { /* capa opcional */ } }
   // confiabilidad
   const rc = rel.label === 'Alta' ? 'ok' : rel.label === 'Media' ? 'warn' : 'bad';
   $('#relChip').textContent = f ? Math.round(rel.score) + ' % · ' + rel.label : '—'; $('#relDot').className = 'dot ' + (f ? rc : '');
