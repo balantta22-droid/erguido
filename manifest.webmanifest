@@ -3,7 +3,7 @@
  "short_name": "Erguido",
  "description": "Monitor de postura de cabeza con la cámara del celular o del computador",
  "id": "./",
- "start_url": "./app.html",
+ "start_url": "./",
  "scope": "./",
  "display": "standalone",
  "orientation": "any",
