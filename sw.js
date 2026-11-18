@@ -1,7 +1,7 @@
-const V='erguido-v6';
+const V='erguido-v7';
 const FILES=['app.html','manifest.webmanifest','icon.png','icon-192.png','pose.js','pose_landmark_full.tflite','pose_solution_packed_assets.data','pose_solution_packed_assets_loader.js','pose_solution_simd_wasm_bin.js','pose_solution_simd_wasm_bin.data','pose_solution_simd_wasm_bin.wasm','pose_web.binarypb','Inter-Bold.otf','Inter-Medium.otf','Inter-Regular.otf','Inter-SemiBold.otf','referencias.html','Erguido_referencias.docx','pro.js','pro.css'];
 const CDN=/^https:\/\/cdn\.jsdelivr\.net\/npm\/@mediapipe\/face_mesh@/;
-self.addEventListener('install',e=>e.waitUntil(caches.open(V).then(c=>Promise.all(FILES.map(f=>c.add(f).catch(()=>{})))).then(()=>self.skipWaiting())));
+self.addEventListener('install',e=>e.waitUntil(caches.open(V).then(c=>Promise.all(FILES.map(f=>c.add(new Request(f,{cache:'reload'})).catch(()=>{})))).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==V).map(x=>caches.delete(x)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{
   const q=e.request; if(q.method!=='GET')return;
